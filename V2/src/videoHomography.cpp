@@ -371,42 +371,6 @@ void VideoHomography::drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objec
 
 		extractor->compute( img_object_gray, keypoints_object, descriptors_object );
 
-
-		//std::vector< vector<DMatch> > all_matches;
-
-		/*
-		  std::vector<DMatch> match;
-		  //matcher.knnMatch( descriptors_object, descriptors_scene , all_matches, 2);
-		  matcher.match( descriptors_object, descriptors_scene , match);
-
-
-		  //all_matches.push_back(match);
-		  //std::vector<vector<DMatch>> all_good_matches;
-
-		  //for (int j = 0; j < number_of_matches; j++){
-		  double max_dist = 0; double min_dist = 100;
-
-		  //-- Quick calculation of max and min distances between keypoints
-		  for( int i = 0; i < descriptors_object.rows; i++ )
-		  {
-			  double dist = match[i].distance;
-			  if( dist < min_dist ) min_dist = dist;
-			  if( dist > max_dist ) max_dist = dist;
-		  }
-
-		  //printf("-- Max dist : %f \n", max_dist );
-		  //printf("-- Min dist : %f \n", min_dist );
-
-			//-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
-		  std::vector< DMatch > good_matches;
-
-		  float nndr_ratio = 3;
-		  for( int i = 0; i < descriptors_object.rows; i++ )
-		  { if( match[i].distance < max(nndr_ratio * min_dist, 0.02) )
-		  { good_matches.push_back( match[i]); }
-		  }
-		 */
-
 		std::vector<vector<DMatch > > matches;
 		matcher.knnMatch(descriptors_object, descriptors_scene, matches, 2);
 		std::vector< DMatch > good_matches;
@@ -420,7 +384,7 @@ void VideoHomography::drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objec
 		}
 
 
-		if (good_matches.size() < 10){
+		if (good_matches.size() < 15){
 			record.push_back(0);
 			continue;
 		}else{
@@ -457,19 +421,6 @@ void VideoHomography::drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objec
 		  std::vector<Point2f> scene_corners(4);
 
 		  perspectiveTransform( obj_corners, scene_corners, H);
-		  /*
-		  for (int i = 0; i <= 3; i++)
-			  std::cout << obj_corners[i] <<"\n";
-
-		  for (int i = 0; i <= 3; i++)
-			  std::cout << scene_corners[i] << "\n";
-		   */
-		 /* bool allZero = true;
-		  for(int i = 0; i < 4; ++i){
-			  if(scene_corners[i].x != 0 || scene_corners[i].y != 0){
-				  allZero = false;
-			  }
-		  }*/
 
 		  //determine object position
 		  float x = (scene_corners[0].x + scene_corners[1].x + scene_corners[2].x + scene_corners[3].x)/4;

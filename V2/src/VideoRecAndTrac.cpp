@@ -141,41 +141,6 @@ void drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objects){
 	  extractor->compute( img_object_gray, keypoints_object, descriptors_object );
 
 
-	  //std::vector< vector<DMatch> > all_matches;
-
-	  /*
-	  std::vector<DMatch> match;
-	  //matcher.knnMatch( descriptors_object, descriptors_scene , all_matches, 2);
-	  matcher.match( descriptors_object, descriptors_scene , match);
-
-
-	  //all_matches.push_back(match);
-	  //std::vector<vector<DMatch>> all_good_matches;
-
-	  //for (int j = 0; j < number_of_matches; j++){
-	  double max_dist = 0; double min_dist = 100;
-
-	  //-- Quick calculation of max and min distances between keypoints
-	  for( int i = 0; i < descriptors_object.rows; i++ )
-	  {
-		  double dist = match[i].distance;
-		  if( dist < min_dist ) min_dist = dist;
-		  if( dist > max_dist ) max_dist = dist;
-	  }
-
-	  //printf("-- Max dist : %f \n", max_dist );
-	  //printf("-- Min dist : %f \n", min_dist );
-
-		//-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
-	  std::vector< DMatch > good_matches;
-
-	  float nndr_ratio = 3;
-	  for( int i = 0; i < descriptors_object.rows; i++ )
-	  { if( match[i].distance < max(nndr_ratio * min_dist, 0.02) )
-	  { good_matches.push_back( match[i]); }
-	  }
-	   */
-
 	  std::vector<vector<DMatch > > matches;
 	  matcher.knnMatch(descriptors_object, descriptors_scene, matches, 2);
 	  std::vector< DMatch > good_matches;
@@ -192,15 +157,6 @@ void drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objects){
 		  continue;
 	  }
 
-
-	  //all_good_matches.push_back(good_matches);
-
-
-	  /*
-		  drawMatches( img_object_gray, keypoints_object, img_scene_gray, keypoints_scene,
-						good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-					   vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-	   */
 
 
 
@@ -232,16 +188,7 @@ void drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objects){
 		  std::vector<Point2f> scene_corners(4);
 
 		  perspectiveTransform( obj_corners, scene_corners, H);
-		  /*
-		  for (int i = 0; i <= 3; i++)
-			  std::cout << obj_corners[i] <<"\n";
 
-		  for (int i = 0; i <= 3; i++)
-			  std::cout << scene_corners[i] << "\n";
-		   */
-
-		  //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-		  //Point2f offset( (float)img_object_gray.cols, 0);
 		  Point2f offset( 0, 0);
 		  line( img_scene, scene_corners[0] + offset, scene_corners[1] + offset, Scalar(0, 255, 0), 4 );
 		  line( img_scene, scene_corners[1] + offset, scene_corners[2] + offset, Scalar( 0, 255, 0), 4 );
@@ -251,19 +198,6 @@ void drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objects){
 	  catch(Exception& e){}
 	}
 }
-
-
-  /*
-  //-- Show detected matches
-  //cv::namedWindow("Good Matches & Object detection");
-  Mat resized_img_matches = img_matches;
-  //cv::resize(img_matches, resized_img_matches, cv::Size(), 0.1, 0.1, cv::INTER_LANCZOS4);
-
-  imshow( "Good Matches & Object detection", resized_img_matches );
-  */
-
-  //cv::waitKey(0);
-//}
 
 
 
