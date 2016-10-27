@@ -41,6 +41,10 @@ class VideoHomography{
                                          float maxDeltaX, float maxDeltaY );
 
         bool isNumeric(const std::string& str);
+
+        std::vector<vector<int> > records;
+
+        int frame_number;
     private:
         cv::Mat K;
 

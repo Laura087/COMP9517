@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 	}
 	*/
 
-
+/*
     Mat edges;
     cv::namedWindow("edges",1);
     cv::CascadeClassifier();
@@ -100,8 +100,10 @@ int main(int argc, char** argv)
 
         imshow("edges", frame);
         //outputVideo << frame;
-        if(waitKey(30) >= 0) break;
+        if(waitKey(3) >= 0) break;
     }
+
+    */
     // the camera will be deinitialized automatically in VideoCapture destructor
     return 0;
 
@@ -109,38 +111,36 @@ int main(int argc, char** argv)
 
 
 void drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objects){
-  Mat img_object_gray;
-  Mat img_scene_gray;
+  Mat img_object_gray, img_scene_gray;
+  std::vector<KeyPoint> keypoints_object, keypoints_scene;
+  Mat descriptors_object, descriptors_scene;
 
   cv::cvtColor(img_scene, img_scene_gray, CV_BGR2GRAY);
+
+  //-- Step 1: Detect the keypoints using SURF Detector
+  int minHessian = 400;
+
+  //SurfFeatureDetector detector( minHessian );
+
+  Ptr<cv::xfeatures2d::SURF> detector=cv::xfeatures2d::SURF::create(minHessian);
+  detector->detect( img_scene_gray, keypoints_scene );
+
+  //-- Step 2: Calculate descriptors (feature vectors)
+  //SurfDescriptorExtractor extractor;
+  Ptr<cv::xfeatures2d::SURF> extractor = cv::xfeatures2d::SURF::create();
+  extractor->compute( img_scene_gray, keypoints_scene, descriptors_scene );
+  //-- Step 3: Matching descriptor vectors using FLANN matcher
+  FlannBasedMatcher matcher;
 
   for(int i = 0; i < img_objects.size(); i++){
 
 	  cv::cvtColor(img_objects[i], img_object_gray, CV_BGR2GRAY);
 
-	  //-- Step 1: Detect the keypoints using SURF Detector
-	  int minHessian = 400;
-
-	  //SurfFeatureDetector detector( minHessian );
-
-	  Ptr<cv::xfeatures2d::SURF> detector=cv::xfeatures2d::SURF::create(minHessian);
-
-	  std::vector<KeyPoint> keypoints_object, keypoints_scene;
-
 	  detector->detect( img_object_gray, keypoints_object );
-	  detector->detect( img_scene_gray, keypoints_scene );
-
-	  //-- Step 2: Calculate descriptors (feature vectors)
-	  //SurfDescriptorExtractor extractor;
-	  Ptr<cv::xfeatures2d::SURF> extractor = cv::xfeatures2d::SURF::create();
-
-	  Mat descriptors_object, descriptors_scene;
 
 	  extractor->compute( img_object_gray, keypoints_object, descriptors_object );
-	  extractor->compute( img_scene_gray, keypoints_scene, descriptors_scene );
 
-	  //-- Step 3: Matching descriptor vectors using FLANN matcher
-	  FlannBasedMatcher matcher;
+
 	  //std::vector< vector<DMatch> > all_matches;
 
 	  /*
@@ -182,13 +182,13 @@ void drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objects){
 	  float nndr_ratio = 0.7f;
 	  for(int i = 0; i < min(descriptors_object.rows-1,(int) matches.size()); i++) //THIS LOOP IS SENSITIVE TO SEGFAULTS
 	  {
-	      if((matches[i][0].distance < nndr_ratio*(matches[i][1].distance)) && ((int) matches[i].size()<=2 && (int) matches[i].size()>0))
-	      {
-	          good_matches.push_back(matches[i][0]);
-	      }
+		  if((matches[i][0].distance < nndr_ratio*(matches[i][1].distance)) && ((int) matches[i].size()<=2 && (int) matches[i].size()>0))
+		  {
+			  good_matches.push_back(matches[i][0]);
+		  }
 	  }
 
-	  if (good_matches.size() < 8){
+	  if (good_matches.size() < 6){
 		  continue;
 	  }
 

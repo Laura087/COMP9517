@@ -80,7 +80,9 @@ int VideoHomography::run(){
 
     cv::Mat H_prev = cv::Mat::eye(3, 3, CV_32FC1);
 
-    int frame_number = 0;
+    cv::namedWindow("frame", cv::WINDOW_AUTOSIZE);
+
+    frame_number = 0;
     for (;;)
     {
         capture >> frame;
@@ -93,50 +95,53 @@ int VideoHomography::run(){
         drawRectOnFrame(frame, objects);
         putText(frame, std::to_string(frame_number), Point(frame.cols - 60, 20), FONT_HERSHEY_COMPLEX_SMALL, 0.8, Scalar(0, 0, 255), 1, CV_AA);
 
-        detector->detect(gray, query_kpts); //Find interest points
+        bool showHomo = false;
+        if (showHomo){
+			detector->detect(gray, query_kpts); //Find interest points
 
-        brief->compute(gray, query_kpts, query_desc); //Compute brief descriptors at each keypoint location
+			brief->compute(gray, query_kpts, query_desc); //Compute brief descriptors at each keypoint location
 
-        if (!train_kpts.empty())
-        {
+			if (!train_kpts.empty())
+			{
 
-            std::vector<cv::KeyPoint> test_kpts;
-            Mat invertedH;
-            invert(H_prev,invertedH,DECOMP_LU);
-            warpKeypoints(invertedH, query_kpts, test_kpts);
+				std::vector<cv::KeyPoint> test_kpts;
+				Mat invertedH;
+				invert(H_prev,invertedH,DECOMP_LU);
+				warpKeypoints(invertedH, query_kpts, test_kpts);
 
-            cv::Mat mask = windowedMatchingMask(test_kpts, train_kpts, 25, 25);
-            desc_matcher.match(query_desc, train_desc, matches, mask);
-            drawKeypoints(frame, test_kpts, frame, cv::Scalar(255, 0, 0), cv::DrawMatchesFlags::DRAW_OVER_OUTIMG);
+				cv::Mat mask = windowedMatchingMask(test_kpts, train_kpts, 25, 25);
+				desc_matcher.match(query_desc, train_desc, matches, mask);
+				drawKeypoints(frame, test_kpts, frame, cv::Scalar(255, 0, 0), cv::DrawMatchesFlags::DRAW_OVER_OUTIMG);
 
-            matches2points(train_kpts, query_kpts, matches, train_pts, query_pts);
+				matches2points(train_kpts, query_kpts, matches, train_pts, query_pts);
 
-            if (matches.size() > 5)
-            {
-                cv::Mat H = findHomography(train_pts, query_pts, cv::RANSAC, 4, match_mask);
-                if (countNonZero(cv::Mat(match_mask)) > 15)
-                {
-                    //TODO
-                	poseFromH(H);
-                    H_prev = H;
-                }
-                else
-                    resetH(H_prev);
-                drawMatchesRelative(train_kpts, query_kpts, matches, frame, match_mask);
-            }
-            else
-                resetH(H_prev);
+				if (matches.size() > 5)
+				{
+					cv::Mat H = findHomography(train_pts, query_pts, cv::RANSAC, 4, match_mask);
+					if (countNonZero(cv::Mat(match_mask)) > 15)
+					{
+						//TODO
+						poseFromH(H);
+						H_prev = H;
+					}
+					else
+						resetH(H_prev);
+					drawMatchesRelative(train_kpts, query_kpts, matches, frame, match_mask);
+				}
+				else
+					resetH(H_prev);
 
+			}
+			else
+			{
+				H_prev = cv::Mat::eye(3, 3, CV_32FC1);
+				cv::Mat out;
+				drawKeypoints(gray, query_kpts, out);
+				frame = out;
+			}
+
+		   // drawRectOnFrame(frame, objects);
         }
-        else
-        {
-            H_prev = cv::Mat::eye(3, 3, CV_32FC1);
-            cv::Mat out;
-            drawKeypoints(gray, query_kpts, out);
-            frame = out;
-        }
-
-       // drawRectOnFrame(frame, objects);
 
         imshow("frame", frame);
 
@@ -165,6 +170,11 @@ int VideoHomography::run(){
         }
 
     }
+
+    for (vector<vector<int> >::iterator record = records.begin(); record!=records.end(); ++record){
+    	copy((*record).begin(),(*record).end(),ostream_iterator<int>(cout,"\t"));
+    	cout << "\n";
+    }
     return 0;
 }
 
@@ -178,9 +188,9 @@ void VideoHomography::help(){
 }
 
 void VideoHomography::drawMatchesRelative(const std::vector<cv::KeyPoint>& train, 
-        const std::vector<cv::KeyPoint>& query, 
-        std::vector<cv::DMatch>& matches, cv::Mat& img, 
-        const std::vector<unsigned char>& mask){
+		const std::vector<cv::KeyPoint>& query,
+		std::vector<cv::DMatch>& matches, cv::Mat& img,
+		const std::vector<unsigned char>& mask){
     for (int i = 0; i < (int)matches.size(); i++){
         if (mask.empty() || mask[i])
         {
@@ -330,92 +340,92 @@ bool VideoHomography::isNumeric(const std::string& str) {
 }
 
 void VideoHomography::drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objects){
-  Mat img_object_gray;
-  Mat img_scene_gray;
+	Mat img_object_gray, img_scene_gray;
+	std::vector<KeyPoint> keypoints_object, keypoints_scene;
+	Mat descriptors_object, descriptors_scene;
 
-  cv::cvtColor(img_scene, img_scene_gray, CV_BGR2GRAY);
+	cv::cvtColor(img_scene, img_scene_gray, CV_BGR2GRAY);
 
-  for(int i = 0; i < img_objects.size(); i++){
+	//-- Step 1: Detect the keypoints using SURF Detector
+	int minHessian = 400;
 
-	  cv::cvtColor(img_objects[i], img_object_gray, CV_BGR2GRAY);
+	//SurfFeatureDetector detector( minHessian );
 
-	  //-- Step 1: Detect the keypoints using SURF Detector
-	  int minHessian = 400;
+	Ptr<cv::xfeatures2d::SURF> detector=cv::xfeatures2d::SURF::create(minHessian);
+	detector->detect( img_scene_gray, keypoints_scene );
 
-	  //SurfFeatureDetector detector( minHessian );
+	//-- Step 2: Calculate descriptors (feature vectors)
+	//SurfDescriptorExtractor extractor;
+	Ptr<cv::xfeatures2d::SURF> extractor = cv::xfeatures2d::SURF::create();
+	extractor->compute( img_scene_gray, keypoints_scene, descriptors_scene );
+	//-- Step 3: Matching descriptor vectors using FLANN matcher
+	FlannBasedMatcher matcher;
 
-	  Ptr<cv::xfeatures2d::SURF> detector=cv::xfeatures2d::SURF::create(minHessian);
+	vector<int> record;
+	record.push_back(frame_number);
+	for(int i = 0; i < img_objects.size(); i++){
 
-	  std::vector<KeyPoint> keypoints_object, keypoints_scene;
+		cv::cvtColor(img_objects[i], img_object_gray, CV_BGR2GRAY);
 
-	  detector->detect( img_object_gray, keypoints_object );
-	  detector->detect( img_scene_gray, keypoints_scene );
+		detector->detect( img_object_gray, keypoints_object );
 
-	  //-- Step 2: Calculate descriptors (feature vectors)
-	  //SurfDescriptorExtractor extractor;
-	  Ptr<cv::xfeatures2d::SURF> extractor = cv::xfeatures2d::SURF::create();
+		extractor->compute( img_object_gray, keypoints_object, descriptors_object );
 
-	  Mat descriptors_object, descriptors_scene;
 
-	  extractor->compute( img_object_gray, keypoints_object, descriptors_object );
-	  extractor->compute( img_scene_gray, keypoints_scene, descriptors_scene );
+		//std::vector< vector<DMatch> > all_matches;
 
-	  //-- Step 3: Matching descriptor vectors using FLANN matcher
-	  FlannBasedMatcher matcher;
+		/*
+		  std::vector<DMatch> match;
+		  //matcher.knnMatch( descriptors_object, descriptors_scene , all_matches, 2);
+		  matcher.match( descriptors_object, descriptors_scene , match);
 
-	  /*
-	  //std::vector< vector<DMatch> > all_matches;
-	  std::vector<DMatch> match;
 
-	  //matcher.knnMatch( descriptors_object, descriptors_scene , all_matches, 2);
-	  matcher.match( descriptors_object, descriptors_scene , match);
-	  //all_matches.push_back(match);
+		  //all_matches.push_back(match);
+		  //std::vector<vector<DMatch>> all_good_matches;
 
-	  //all_matches.push_back(match);
-	  //std::vector<vector<DMatch>> all_good_matches;
+		  //for (int j = 0; j < number_of_matches; j++){
+		  double max_dist = 0; double min_dist = 100;
 
-	  //for (int j = 0; j < number_of_matches; j++){
-	  double max_dist = 0; double min_dist = 100;
-
-	  //-- Quick calculation of max and min distances between keypoints
-	  for( int i = 0; i < descriptors_object.rows; i++ )
-	  {
-		  double dist = match[i].distance;
-		  if( dist < min_dist ) min_dist = dist;
-		  if( dist > max_dist ) max_dist = dist;
-	  }
-
-	  //printf("-- Max dist : %f \n", max_dist );
-	  //printf("-- Min dist : %f \n", min_dist );
-
-	  //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
-	  std::vector< DMatch > good_matches;
-
-	  float nndr_ratio = 3;
-	  for( int i = 0; i < descriptors_object.rows; i++ )
-	  {
-		  if( match[i].distance < max(nndr_ratio * min_dist,0.02) ){
-			  good_matches.push_back( match[i]);
-		  }
-	  }
-
-	  //all_good_matches.push_back(good_matches);
-	*/
-	  std::vector<vector<DMatch > > matches;
-	  matcher.knnMatch(descriptors_object, descriptors_scene, matches, 2);
-	  std::vector< DMatch > good_matches;
-	  float nndr_ratio = 0.7f;
-	  for(int i = 0; i < min(descriptors_object.rows-1,(int) matches.size()); i++) //THIS LOOP IS SENSITIVE TO SEGFAULTS
-	  {
-		  if((matches[i][0].distance < nndr_ratio*(matches[i][1].distance)) && ((int) matches[i].size()<=2 && (int) matches[i].size()>0))
+		  //-- Quick calculation of max and min distances between keypoints
+		  for( int i = 0; i < descriptors_object.rows; i++ )
 		  {
-			  good_matches.push_back(matches[i][0]);
+			  double dist = match[i].distance;
+			  if( dist < min_dist ) min_dist = dist;
+			  if( dist > max_dist ) max_dist = dist;
 		  }
-	  }
 
-	  if (good_matches.size() < 8){
-		  continue;
-	  }
+		  //printf("-- Max dist : %f \n", max_dist );
+		  //printf("-- Min dist : %f \n", min_dist );
+
+			//-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
+		  std::vector< DMatch > good_matches;
+
+		  float nndr_ratio = 3;
+		  for( int i = 0; i < descriptors_object.rows; i++ )
+		  { if( match[i].distance < max(nndr_ratio * min_dist, 0.02) )
+		  { good_matches.push_back( match[i]); }
+		  }
+		 */
+
+		std::vector<vector<DMatch > > matches;
+		matcher.knnMatch(descriptors_object, descriptors_scene, matches, 2);
+		std::vector< DMatch > good_matches;
+		float nndr_ratio = 0.7f;
+		for(int i = 0; i < min(descriptors_object.rows-1,(int) matches.size()); i++) //THIS LOOP IS SENSITIVE TO SEGFAULTS
+		{
+			if((matches[i][0].distance < nndr_ratio*(matches[i][1].distance)) && ((int) matches[i].size()<=2 && (int) matches[i].size()>0))
+			{
+				good_matches.push_back(matches[i][0]);
+			}
+		}
+
+
+		if (good_matches.size() < 10){
+			record.push_back(0);
+			continue;
+		}else{
+			record.push_back(1);
+		}
 
 
 
@@ -487,7 +497,7 @@ void VideoHomography::drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objec
 		  }
 
 		  if(near[i] != UNKNOWN/*H.empty()*/){
-			  std::cout << "Can't find" << i << " its " << near[i] << std::endl;
+			  //std::cout << "Can't find" << i << " its " << near[i] << std::endl;
 			  if(near[i] == LEFT){
 				  cv::Point2f A = Point2f(img_scene.cols/4.0, img_scene.rows/2.0+20*i-100);
 				  cv::Point2f B = Point2f(0, img_scene.rows/2.0+20*i-100);
@@ -522,5 +532,6 @@ void VideoHomography::drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objec
 	  catch(Exception& e){
 
 	  }
-  }
+	}
+	records.push_back(record);
 }
