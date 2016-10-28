@@ -371,6 +371,8 @@ void VideoHomography::drawRectOnFrame( Mat img_scene, std::vector<Mat> img_objec
 			continue;
 		}
 
+	for(int i = 0; i < img_objects.size(); i++){
+
 		cv::cvtColor(img_objects[i], img_object_gray, CV_BGR2GRAY);
 
 		detector->detect( img_object_gray, keypoints_object );
